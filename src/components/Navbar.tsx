@@ -18,7 +18,7 @@ import { clsx } from 'clsx';
 
 const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
-  const { userProgress } = useGame();
+  const { userProgress, isOnline } = useGame();
   const location = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -150,6 +150,9 @@ const Navbar: React.FC = () => {
                 <span className="text-sm font-semibold gradient-text">
                   {userProgress.xp.toLocaleString()} XP
                 </span>
+                {!isOnline && (
+                  <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" title="Offline Mode"></div>
+                )}
               </motion.div>
 
               {/* Level Badge */}

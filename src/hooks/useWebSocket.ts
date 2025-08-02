@@ -24,10 +24,10 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     url = process.env.NODE_ENV === 'production' 
       ? 'wss://codecraft-server.herokuapp.com' 
       : 'ws://localhost:3001',
-    autoConnect = true,
+    autoConnect = false, // Changed to false to prevent automatic connection attempts
     reconnection = true,
-    reconnectionAttempts = 5,
-    reconnectionDelay = 1000
+    reconnectionAttempts = 3, // Reduced attempts
+    reconnectionDelay = 2000 // Increased delay
   } = options;
 
   const [state, setState] = useState<WebSocketState>({
@@ -54,7 +54,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         transports: ['websocket', 'polling'],
         upgrade: true,
         rememberUpgrade: true,
-        timeout: 20000,
+        timeout: 10000, // Reduced timeout
         forceNew: true,
         reconnection,
         reconnectionAttempts,
@@ -93,12 +93,12 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       });
 
       socket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
+        console.warn('WebSocket connection failed - server may not be running:', error.message);
         setState(prev => ({
           ...prev,
           isConnected: false,
           isConnecting: false,
-          error: error.message || 'Connection failed'
+          error: null // Don't show error to user since server might not be running
         }));
       });
 
@@ -194,10 +194,18 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
     };
   }, [url, autoConnect]);
 
+  // Add a manual connect function that can be called when needed
+  const manualConnect = () => {
+    if (!state.isConnected && !state.isConnecting) {
+      connect();
+    }
+  };
+
   return {
     ...state,
     connect,
     disconnect,
+    manualConnect,
     emit,
     joinRoom,
     leaveRoom,

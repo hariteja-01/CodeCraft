@@ -13,6 +13,7 @@ import Learn from './pages/Learn';
 import Arena from './pages/Arena';
 import Profile from './pages/Profile';
 import ProblemView from './pages/ProblemView';
+import AlgorithmVisualizations from './pages/AlgorithmVisualizations';
 import './index.css';
 
 function App() {
@@ -44,7 +45,7 @@ function App() {
   return (
     <ThemeProvider>
       <GameProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-indigo-900 transition-colors duration-500">
             <ParticleBackground />
             <Navbar />
@@ -52,6 +53,7 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/learn" element={<Learn />} />
               <Route path="/learn/:problemId" element={<ProblemView />} />
+              <Route path="/visualizations" element={<AlgorithmVisualizations />} />
               <Route path="/arena" element={<Arena />} />
               <Route path="/profile" element={<Profile />} />
             </Routes>

@@ -4,9 +4,8 @@ import { useGame } from '../contexts/GameContext';
 import { Swords, Trophy, Clock, Zap, Users, Target, Crown, Medal, Wifi, WifiOff, Play, Pause } from 'lucide-react';
 
 const Arena: React.FC = () => {
-  const { userProgress } = useGame();
+  const { userProgress, isOnline, connectedUsers: wsConnectedUsers } = useGame();
   const [selectedMode, setSelectedMode] = useState<'daily' | 'tournament' | 'duel' | 'multiplayer' | null>(null);
-  const [isOnline, setIsOnline] = useState(true);
   const [connectedUsers, setConnectedUsers] = useState(1247);
   const [activeMatches, setActiveMatches] = useState(89);
 
@@ -125,26 +124,26 @@ const Arena: React.FC = () => {
             <div className={`flex items-center space-x-2 px-4 py-2 rounded-full border ${
               isOnline 
                 ? 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-700/30' 
-                : 'bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-700/30'
+                : 'bg-orange-100 dark:bg-orange-900/30 border-orange-200 dark:border-orange-700/30'
             }`}>
               {isOnline ? (
                 <Wifi className="w-5 h-5 text-green-600 dark:text-green-400" />
               ) : (
-                <WifiOff className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <WifiOff className="w-5 h-5 text-orange-600 dark:text-orange-400" />
               )}
               <span className={`font-semibold ${
                 isOnline 
                   ? 'text-green-700 dark:text-green-300' 
-                  : 'text-red-700 dark:text-red-300'
+                  : 'text-orange-700 dark:text-orange-300'
               }`}>
-                {isOnline ? 'Online' : 'Offline'}
+                {isOnline ? 'Online' : 'Offline - Multiplayer Unavailable'}
               </span>
             </div>
             
             <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/30">
               <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               <span className="font-semibold text-blue-700 dark:text-blue-300">
-                {connectedUsers.toLocaleString()} Online
+                {isOnline ? (wsConnectedUsers || connectedUsers).toLocaleString() : 'Demo Mode'} Online
               </span>
             </div>
             

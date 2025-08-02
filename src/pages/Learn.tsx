@@ -46,6 +46,17 @@ const Learn: React.FC = () => {
             Master 9 essential Data Structures and Algorithms through interactive visualizations and hands-on coding
           </p>
           
+          {/* Algorithm Visualizations Link */}
+          <div className="mt-6">
+            <Link
+              to="/visualizations"
+              className="inline-flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+            >
+              <span>🎯</span>
+              <span>Interactive Algorithm Visualizations</span>
+            </Link>
+          </div>
+          
           {/* Progress Stats */}
           <div className="flex flex-wrap justify-center gap-6 mt-8">
             <div className="flex items-center space-x-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/30">

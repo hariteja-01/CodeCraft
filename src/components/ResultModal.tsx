@@ -8,6 +8,8 @@ interface TestResult {
   actual: string;
   passed: boolean;
   executionTime: number;
+  memory?: number;
+  status: 'accepted' | 'wrong_answer' | 'runtime_error' | 'compilation_error' | 'time_limit_exceeded';
 }
 
 interface ResultModalProps {
@@ -17,6 +19,13 @@ interface ResultModalProps {
   allPassed: boolean;
   xpEarned: number;
   problemTitle: string;
+  submitResult?: {
+    totalPassed: number;
+    totalTests: number;
+    executionTime: number;
+    memoryUsed: number;
+    status: string;
+  };
 }
 
 const Confetti: React.FC = () => {
@@ -57,7 +66,8 @@ const ResultModal: React.FC<ResultModalProps> = ({
   results,
   allPassed,
   xpEarned,
-  problemTitle
+  problemTitle,
+  submitResult
 }) => {
   return (
     <AnimatePresence>
@@ -123,6 +133,29 @@ const ResultModal: React.FC<ResultModalProps> = ({
                     <Zap className="w-5 h-5 text-yellow-300" />
                   </motion.div>
                 )}
+
+                {/* LeetCode-style performance metrics */}
+                {submitResult && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.4, type: "spring" }}
+                    className="mt-4 flex items-center space-x-4 text-white/90 text-sm"
+                  >
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-4 h-4" />
+                      <span>Runtime: {submitResult.executionTime}ms</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <Zap className="w-4 h-4" />
+                      <span>Memory: {submitResult.memoryUsed}MB</span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{submitResult.totalPassed}/{submitResult.totalTests} passed</span>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Results */}
@@ -152,9 +185,17 @@ const ResultModal: React.FC<ResultModalProps> = ({
                           </span>
                         </div>
                         
-                        <div className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400">
-                          <Clock className="w-4 h-4" />
-                          <span>{result.executionTime.toFixed(1)}ms</span>
+                        <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{result.executionTime.toFixed(1)}ms</span>
+                          </div>
+                          {result.memory && (
+                            <div className="flex items-center space-x-1">
+                              <Zap className="w-4 h-4" />
+                              <span>{result.memory}MB</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       

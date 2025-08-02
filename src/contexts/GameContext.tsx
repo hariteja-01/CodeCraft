@@ -25,8 +25,8 @@ interface GameContextType {
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isOnline, connectedUsers, joinRoom, leaveRoom, sendCode } = useWebSocket({
-    autoConnect: true,
+  const { isOnline, connectedUsers, joinRoom, leaveRoom, sendCode, manualConnect } = useWebSocket({
+    autoConnect: false, // Don't auto-connect to avoid connection errors
     reconnection: true
   });
 

@@ -94,11 +94,21 @@ const Home: React.FC = () => {
                   </span>
                 </motion.div>
 
-                <h1 className="text-5xl lg:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent leading-tight">
+                <h1 className="text-5xl lg:text-7xl font-bold leading-tight">
                   Master DSA with
                   <br />
-                  <span className="relative">
-                    Visual Magic
+                  <div className="relative inline-block group cursor-pointer transform transition-transform duration-700 ease-out group-hover:scale-105">
+                    <span className="relative">
+                      {/* Hidden text that appears on hover */}
+                      <span className="opacity-0 group-hover:opacity-100 transition-all duration-700 ease-out transform group-hover:translate-y-0 translate-y-2 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 bg-clip-text text-transparent group-hover:drop-shadow-lg group-hover:drop-shadow-emerald-500/50">
+                        Visual Magic
+                      </span>
+                      {/* Visible text that fades out on hover */}
+                      <span className="absolute inset-0 opacity-100 group-hover:opacity-0 transition-all duration-700 ease-out transform group-hover:-translate-y-2 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                        Visual Magic
+                      </span>
+                    </span>
+                    {/* Enhanced underline animation */}
                     <motion.div
                       className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
                       initial={{ scaleX: 0 }}
@@ -106,7 +116,11 @@ const Home: React.FC = () => {
                       transition={{ delay: 1, duration: 0.8 }}
                       style={{ opacity: 1 }}
                     />
-                  </span>
+                    {/* Additional hover effect line */}
+                    <div className="absolute -bottom-2 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-700 ease-out transform scale-x-0 group-hover:scale-x-100 origin-left shadow-lg shadow-emerald-500/50"></div>
+                    {/* Subtle glow effect */}
+                    <div className="absolute inset-0 opacity-0 group-hover:opacity-20 transition-opacity duration-700 ease-out bg-gradient-to-r from-emerald-400 to-cyan-400 blur-xl rounded-lg"></div>
+                  </div>
                 </h1>
 
                 <p className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed">

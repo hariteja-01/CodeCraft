@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { getProblemById } from '../data/problems';
 import { useGame } from '../contexts/GameContext';
-import CodeEditor from '../components/CodeEditor';
-import Visualizer from '../components/Visualizer';
 import ResultModal from '../components/ResultModal';
-import { Play, RotateCcw, Lightbulb, Clock, Trophy, ArrowLeft } from 'lucide-react';
+import { Play, RotateCcw, Lightbulb, Clock, Trophy, ArrowLeft, Zap, Brain } from 'lucide-react';
+import { CppCodeExecutor, CodeAnalyzer } from '../utils/codeExecutor';
+
+// Lazy load components for better performance
+const CodeEditor = lazy(() => import('../components/CodeEditor'));
+const Visualizer = lazy(() => import('../components/Visualizer'));
+const LiveCodeVisualizer = lazy(() => import('../components/LiveCodeVisualizer'));
 
 const ProblemView: React.FC = () => {
   const { problemId } = useParams<{ problemId: string }>();
@@ -22,12 +26,32 @@ const ProblemView: React.FC = () => {
   const [testResults, setTestResults] = useState<any[]>([]);
   const [showResult, setShowResult] = useState(false);
   const [allPassed, setAllPassed] = useState(false);
+  const [showLiveVisualizer, setShowLiveVisualizer] = useState(true);
+  const [codeAnalysis, setCodeAnalysis] = useState<any>(null);
+  const [compileResult, setCompileResult] = useState<any>(null);
+  const [submitResult, setSubmitResult] = useState<any>(null);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (problem) {
       setCode(problem.starterCode);
     }
   }, [problem]);
+
+  // Real-time code analysis and compilation check
+  useEffect(() => {
+    if (code && code.trim().length > 0) {
+      const analysis = CodeAnalyzer.analyzeCode(code);
+      setCodeAnalysis(analysis);
+      
+      // Only show compilation result if there are actual errors
+      const compileResult = CppCodeExecutor.compileOnly(code, problem?.id || '');
+      if (compileResult.errors.length > 0 || compileResult.success) {
+        setCompileResult(compileResult);
+      }
+    }
+  }, [code, problem?.id]);
 
   if (!problem) {
     return (
@@ -47,71 +71,62 @@ const ProblemView: React.FC = () => {
     );
   }
 
-  const handleRunCode = async () => {
-    setIsRunning(true);
+  const handleCompile = async () => {
+    setIsCompiling(true);
+    setCompileResult(null);
     
-    // Enhanced code execution and test case evaluation
-    setTimeout(() => {
-      // Comprehensive code validation
-      const codeWithoutComments = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-      const meaningfulCode = codeWithoutComments.replace(/\s/g, '');
-      const starterCodeClean = problem.starterCode.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s/g, '');
-      
-      const hasValidCode = meaningfulCode.length > starterCodeClean.length + 20 && 
-                          code.includes('return') && 
-                          !code.includes('// Your code here') &&
-                          !code.includes('Your code here') &&
-                          (code.includes('{') && code.includes('}')) &&
-                          code.split('\n').filter(line => line.trim().length > 0).length > 5;
-      
-      const results = problem.testCases.map((testCase, index) => {
-        if (!hasValidCode) {
-          return {
-            input: testCase.input,
-            expected: testCase.expectedOutput,
-            actual: 'No valid solution provided',
-            passed: false,
-            executionTime: 0
-          };
-        }
-        
-        // Advanced code quality analysis
-        const hasLoops = /for\s*\(|while\s*\(/.test(code);
-        const hasConditions = /if\s*\(/.test(code);
-        const hasVariables = /(?:int|long|double|float|char|string|bool)\s+\w+/.test(code);
-        const hasArrayAccess = /\w+\[\w*\]/.test(code);
-        
-        let qualityScore = 0;
-        if (hasLoops) qualityScore += 0.3;
-        if (hasConditions) qualityScore += 0.2;
-        if (hasVariables) qualityScore += 0.2;
-        if (hasArrayAccess) qualityScore += 0.3;
-        
-        // Simulate realistic test case execution
-        const passed = qualityScore > 0.6 && Math.random() > 0.2; // 80% pass rate for quality code
-        
-        return {
-          input: testCase.input,
-          expected: testCase.expectedOutput,
-          actual: passed ? testCase.expectedOutput : 'Wrong Answer',
-          passed: passed,
-          executionTime: Math.random() * 150 + 25
-        };
+    try {
+      const result = CppCodeExecutor.compileOnly(code, problem.id);
+      setCompileResult(result);
+    } catch (error) {
+      console.error('Compilation error:', error);
+      setCompileResult({
+        success: false,
+        errors: ['Compilation failed'],
+        warnings: []
       });
+    } finally {
+      setIsCompiling(false);
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    setSubmitResult(null);
+    
+    try {
+      // Analyze the code first
+      const analysis = CodeAnalyzer.analyzeCode(code);
+      setCodeAnalysis(analysis);
       
-      setTestResults(results);
-      const allTestsPassed = results.every(result => result.passed);
-      setAllPassed(allTestsPassed);
+      // Submit the solution (includes compilation check)
+      const result = CppCodeExecutor.submitSolution(code, problem.id, problem.testCases);
+      setSubmitResult(result);
       
-      if (allTestsPassed) {
+      // Set results for the modal
+      setTestResults(result.results);
+      setAllPassed(result.status === 'accepted');
+      
+      if (result.status === 'accepted') {
         addXP(problem.xpReward);
         markProblemSolved(problem.id);
         updateStreak();
       }
       
       setShowResult(true);
-      setIsRunning(false);
-    }, 2000); // Slightly longer for more realistic feel
+    } catch (error) {
+      console.error('Submission error:', error);
+      setSubmitResult({
+        results: [],
+        totalPassed: 0,
+        totalTests: problem.testCases.length,
+        executionTime: 0,
+        memoryUsed: 0,
+        status: 'runtime_error'
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleResetCode = () => {
@@ -294,10 +309,54 @@ const ProblemView: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.4 }}
             className="space-y-6"
           >
-            {/* Visualizer */}
-            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 dark:border-slate-700/30">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Live Visualizer</h2>
-              <Visualizer problem={problem} code={code} />
+            {/* Visualization Toggle */}
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl p-4 border border-white/20 dark:border-slate-700/30">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Live Visualization</h2>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowLiveVisualizer(true)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      showLiveVisualizer
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <Brain className="w-4 h-4 inline mr-1" />
+                    Code Flow
+                  </button>
+                  <button
+                    onClick={() => setShowLiveVisualizer(false)}
+                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors duration-200 ${
+                      !showLiveVisualizer
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    <Zap className="w-4 h-4 inline mr-1" />
+                    3D View
+                  </button>
+                </div>
+              </div>
+              
+              <Suspense fallback={
+                <div className="h-80 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Loading Visualizer...</div>
+                  </div>
+                </div>
+              }>
+                {showLiveVisualizer ? (
+                  <LiveCodeVisualizer 
+                    code={code} 
+                    problemId={problem.id} 
+                    isRunning={isRunning} 
+                  />
+                ) : (
+                  <Visualizer problem={problem} code={code} />
+                )}
+              </Suspense>
             </div>
 
             {/* Code Editor */}
@@ -315,28 +374,176 @@ const ProblemView: React.FC = () => {
                 </div>
               </div>
               
-              <CodeEditor
-                value={code}
-                onChange={setCode}
-                language="cpp"
-                height="400px"
-              />
+              <Suspense fallback={
+                <div className="h-96 flex items-center justify-center border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">Loading Code Editor...</div>
+                  </div>
+                </div>
+              }>
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  language="cpp"
+                  height="400px"
+                />
+              </Suspense>
               
               <div className="flex items-center justify-between mt-4">
-                <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                  <Clock className="w-4 h-4" />
-                  <span>Auto-save enabled</span>
+                <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center space-x-2">
+                    <Clock className="w-4 h-4" />
+                    <span>Auto-save enabled</span>
+                  </div>
+                  
+                  {/* Real-time compilation status */}
+                  {compileResult && (
+                    <div className={`flex items-center space-x-2 px-2 py-1 rounded text-xs ${
+                      compileResult.success 
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full ${
+                        compileResult.success ? 'bg-green-500' : 'bg-yellow-500'
+                      }`}></div>
+                      <span>{compileResult.success ? 'Compiled' : 'Has Issues'}</span>
+                    </div>
+                  )}
                 </div>
                 
-                <button
-                  onClick={handleRunCode}
-                  disabled={isRunning}
-                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-                >
-                  <Play className="w-5 h-5" />
-                  <span>{isRunning ? 'Running...' : 'Run & Submit'}</span>
-                </button>
+                <div className="flex items-center space-x-3">
+                  {/* Compile Button */}
+                  <button
+                    onClick={handleCompile}
+                    disabled={isCompiling}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    <div className={`w-4 h-4 ${isCompiling ? 'animate-spin border-2 border-white border-t-transparent rounded-full' : ''}`}></div>
+                    <span>{isCompiling ? 'Compiling...' : 'Compile'}</span>
+                  </button>
+                  
+                  {/* Submit Button */}
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="flex items-center space-x-2 px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    <Play className="w-4 h-4" />
+                    <span>{isSubmitting ? 'Submitting...' : 'Submit'}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Compilation Result Panel */}
+              {compileResult && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`mt-4 p-4 rounded-lg border ${
+                    compileResult.success 
+                      ? 'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20'
+                      : 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Compilation Result</h4>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      compileResult.success 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                    }`}>
+                      {compileResult.success ? 'Success' : 'Failed'}
+                    </div>
+                  </div>
+                  
+                  {compileResult.errors.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">Errors:</h5>
+                      <ul className="space-y-1">
+                        {compileResult.errors.map((error: string, index: number) => (
+                          <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-start">
+                            <span className="mr-2">❌</span>
+                            {error}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {compileResult.warnings.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-2">Warnings:</h5>
+                      <ul className="space-y-1">
+                        {compileResult.warnings.map((warning: string, index: number) => (
+                          <li key={index} className="text-sm text-yellow-600 dark:text-yellow-400 flex items-start">
+                            <span className="mr-2">⚠️</span>
+                            {warning}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {compileResult.success && (
+                    <div className="text-sm text-green-600 dark:text-green-400">
+                      ✅ Code compiled successfully! Ready to submit.
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {/* Code Analysis Panel */}
+              {codeAnalysis && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-4 rounded-lg border"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Code Analysis</h4>
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      codeAnalysis.isValid 
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                    }`}>
+                      {codeAnalysis.isValid ? 'Valid' : 'Needs Review'}
+                    </div>
+                  </div>
+                  
+                  {codeAnalysis.issues.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-red-600 dark:text-red-400 mb-2">Issues Found:</h5>
+                      <ul className="space-y-1">
+                        {codeAnalysis.issues.map((issue: string, index: number) => (
+                          <li key={index} className="text-sm text-red-600 dark:text-red-400 flex items-start">
+                            <span className="mr-2">•</span>
+                            {issue}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {codeAnalysis.suggestions.length > 0 && (
+                    <div className="mb-3">
+                      <h5 className="text-sm font-medium text-blue-600 dark:text-blue-400 mb-2">Suggestions:</h5>
+                      <ul className="space-y-1">
+                        {codeAnalysis.suggestions.map((suggestion: string, index: number) => (
+                          <li key={index} className="text-sm text-blue-600 dark:text-blue-400 flex items-start">
+                            <span className="mr-2">💡</span>
+                            {suggestion}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Complexity:</span> {codeAnalysis.complexity}
+                  </div>
+                </motion.div>
+              )}
             </div>
           </motion.div>
         </div>
@@ -351,6 +558,7 @@ const ProblemView: React.FC = () => {
           allPassed={allPassed}
           xpEarned={allPassed ? problem.xpReward : 0}
           problemTitle={problem.title}
+          submitResult={submitResult}
         />
       )}
     </div>
